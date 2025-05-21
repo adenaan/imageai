@@ -40,6 +40,49 @@
 
 
 <script>
+  // Load cached history on page load
+  window.addEventListener("DOMContentLoaded", () => {
+    const history = document.getElementById("history");
+    const cached = JSON.parse(localStorage.getItem("imageHistory")) || [];
+
+    cached.forEach(({ url, id }) => {
+      const historyItem = document.createElement("div");
+      historyItem.style.width = "150px";
+      historyItem.style.textAlign = "center";
+      historyItem.style.display = "inline-block";
+      historyItem.dataset.id = id;
+
+      const thumb = document.createElement("img");
+      thumb.src = url;
+      thumb.style.width = "100%";
+      thumb.style.border = "1px solid #ccc";
+      thumb.style.borderRadius = "6px";
+
+      const downloadBtn = document.createElement("a");
+      downloadBtn.href = url;
+      downloadBtn.download = `image-${id}.png`;
+      downloadBtn.innerText = "Download";
+      downloadBtn.style.display = "block";
+      downloadBtn.style.marginTop = "4px";
+      downloadBtn.style.textDecoration = "none";
+      downloadBtn.style.fontSize = "12px";
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.innerText = "Delete";
+      deleteBtn.style.marginTop = "4px";
+      deleteBtn.style.fontSize = "12px";
+      deleteBtn.onclick = () => {
+        history.removeChild(historyItem);
+        removeFromLocalStorage(id);
+      };
+
+      historyItem.appendChild(thumb);
+      historyItem.appendChild(downloadBtn);
+      historyItem.appendChild(deleteBtn);
+      history.appendChild(historyItem);
+    });
+  });
+
   async function generateImage() {
     const prompt = document.getElementById("prompt").value.trim();
     const output = document.getElementById("output");
@@ -62,6 +105,7 @@
 
       const blob = await response.blob();
       const imageURL = URL.createObjectURL(blob);
+      const id = Date.now();
 
       // Show current image
       const image = document.createElement("img");
@@ -75,6 +119,7 @@
       historyItem.style.width = "150px";
       historyItem.style.textAlign = "center";
       historyItem.style.display = "inline-block";
+      historyItem.dataset.id = id;
 
       const thumb = document.createElement("img");
       thumb.src = imageURL;
@@ -84,7 +129,7 @@
 
       const downloadBtn = document.createElement("a");
       downloadBtn.href = imageURL;
-      downloadBtn.download = `image-${Date.now()}.png`;
+      downloadBtn.download = `image-${id}.png`;
       downloadBtn.innerText = "Download";
       downloadBtn.style.display = "block";
       downloadBtn.style.marginTop = "4px";
@@ -95,19 +140,37 @@
       deleteBtn.innerText = "Delete";
       deleteBtn.style.marginTop = "4px";
       deleteBtn.style.fontSize = "12px";
-      deleteBtn.onclick = () => history.removeChild(historyItem);
+      deleteBtn.onclick = () => {
+        history.removeChild(historyItem);
+        removeFromLocalStorage(id);
+      };
 
       historyItem.appendChild(thumb);
       historyItem.appendChild(downloadBtn);
       historyItem.appendChild(deleteBtn);
       history.appendChild(historyItem);
 
+      saveToLocalStorage(imageURL, id);
+
     } catch (err) {
       console.error("Fetch error:", err);
       output.innerHTML = "An error occurred while generating the image.";
     }
   }
+
+  function saveToLocalStorage(url, id) {
+    const history = JSON.parse(localStorage.getItem("imageHistory")) || [];
+    history.push({ url, id });
+    localStorage.setItem("imageHistory", JSON.stringify(history));
+  }
+
+  function removeFromLocalStorage(id) {
+    let history = JSON.parse(localStorage.getItem("imageHistory")) || [];
+    history = history.filter(item => item.id !== id);
+    localStorage.setItem("imageHistory", JSON.stringify(history));
+  }
 </script>
+
 
 
 </body>
