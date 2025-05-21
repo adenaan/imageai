@@ -37,10 +37,11 @@
 <div id="history" style="margin-top: 20px;"></div>
 
 
- <script>
+<script>
   async function generateImage() {
     const prompt = document.getElementById("prompt").value.trim();
     const output = document.getElementById("output");
+    const history = document.getElementById("history");
     output.innerHTML = "Generating image...";
 
     try {
@@ -50,71 +51,60 @@
         body: JSON.stringify({ prompt }),
       });
 
-      const contentType = response.headers.get("content-type");
+      if (!response.ok) throw new Error("Worker response error");
 
-      if (contentType && contentType.startsWith("image/")) {
-        const blob = await response.blob();
-        const imageUrl = URL.createObjectURL(blob);
+      const blob = await response.blob();
+      const imageURL = URL.createObjectURL(blob);
 
-        const image = document.createElement("img");
-        image.src = imageUrl;
-        output.innerHTML = "";
-        output.appendChild(image);
+      // Show current image
+      const image = document.createElement("img");
+      image.src = imageURL;
+      image.style.maxWidth = "100%";
+      output.innerHTML = "";
+      output.appendChild(image);
 
-        // Save image to history
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = reader.result.split(",")[1];
-          saveImageToHistory(base64);
-        };
-        reader.readAsDataURL(blob);
-      } else {
-        const text = await response.text();
-        output.innerHTML = "Error: " + text;
-        console.error("Unexpected non-image response:", text);
-      }
+      // Add to history
+      const historyItem = document.createElement("div");
+      historyItem.style.width = "150px";
+      historyItem.style.textAlign = "center";
+      historyItem.style.display = "inline-block";
+      historyItem.style.margin = "10px";
+
+      const thumb = document.createElement("img");
+      thumb.src = imageURL;
+      thumb.style.width = "100%";
+      thumb.style.border = "1px solid #ccc";
+      thumb.style.borderRadius = "6px";
+
+      const downloadBtn = document.createElement("a");
+      downloadBtn.href = imageURL;
+      downloadBtn.download = `image-${Date.now()}.png`;
+      downloadBtn.innerText = "Download";
+      downloadBtn.style.display = "block";
+      downloadBtn.style.marginTop = "4px";
+      downloadBtn.style.textDecoration = "none";
+      downloadBtn.style.fontSize = "12px";
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.innerText = "Delete";
+      deleteBtn.style.marginTop = "4px";
+      deleteBtn.style.fontSize = "12px";
+      deleteBtn.onclick = () => {
+        history.removeChild(historyItem);
+      };
+
+      historyItem.appendChild(thumb);
+      historyItem.appendChild(downloadBtn);
+      historyItem.appendChild(deleteBtn);
+      history.appendChild(historyItem);
+
     } catch (err) {
       console.error("Fetch error:", err);
       output.innerHTML = "An error occurred while generating the image.";
     }
   }
-
-  function saveImageToHistory(base64) {
-    const history = JSON.parse(localStorage.getItem("imageHistory") || "[]");
-    history.unshift(base64);
-    localStorage.setItem("imageHistory", JSON.stringify(history.slice(0, 10)));
-    renderImageHistory(history.slice(0, 10));
-  }
-
-  function renderImageHistory(history) {
-    const container = document.getElementById("history");
-    if (!container) return;
-
-    container.innerHTML = "<h3>Image History</h3>";
-    history.forEach((base64, index) => {
-      const wrapper = document.createElement("div");
-      const img = document.createElement("img");
-      img.src = `data:image/png;base64,${base64}`;
-      img.style.maxWidth = "150px";
-      img.style.margin = "5px";
-
-      const downloadLink = document.createElement("a");
-      downloadLink.href = img.src;
-      downloadLink.download = `image_${index + 1}.png`;
-      downloadLink.textContent = "Download";
-      downloadLink.style.display = "block";
-
-      wrapper.appendChild(img);
-      wrapper.appendChild(downloadLink);
-      container.appendChild(wrapper);
-    });
-  }
-
-  window.addEventListener("DOMContentLoaded", () => {
-    const history = JSON.parse(localStorage.getItem("imageHistory") || "[]");
-    renderImageHistory(history);
-  });
 </script>
+
 
 
 
