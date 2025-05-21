@@ -1,51 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
+  <head>
+<meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Text to Image Generator By Addie</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      padding: 2rem;
-      max-width: 600px;
+      padding: 1rem;
+      max-width: 100%;
+      width: 100%;
       margin: auto;
+      box-sizing: border-box;
     }
+
     input, button {
       padding: 10px;
-      margin-top: 10px;
-      width: 100%;
       font-size: 1rem;
+      width: 100%;
+      box-sizing: border-box;
     }
+
     img {
       margin-top: 20px;
       max-width: 100%;
       border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    #history {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+      justify-content: flex-start;
+    }
+
+    #history div {
+      width: 150px;
+      text-align: center;
+      display: inline-block;
+      margin-right: 8px;
+    }
+
+    #history-note {
+      font-size: 14px;
+      color: #555;
+      margin-top: 8px;
+    }
+
+    /* Responsive styles */
+    @media (max-width: 600px) {
+      input[type="text"],
+      button {
+        font-size: 1rem;
+        width: 100%;
+      }
+
+      #history {
+        justify-content: center;
+      }
+
+      #history div {
+        width: 100%;
+        max-width: 220px;
+        margin-right: 0;
+      }
     }
   </style>
 </head>
 <body>
 
   <h3>🅰️ℹ️ Text To Image By Addie</h3>
-  
-  <input type="text" id="prompt" placeholder="Enter your prompt" style="width: 300px;" />
-<button onclick="generateImage()">Generate</button>
 
-  <small style="display:block; margin-top:5px; color:gray;">
-  Example prompt: <em>"A futuristic cityscape at night with neon lights and flying cars"</em>
+  <div style="display: flex; flex-direction: column; gap: 10px; max-width: 400px;">
+    <input type="text" id="prompt" placeholder="Enter your prompt" />
+    <button onclick="generateImage()">Generate</button>
+  </div>
+
+  <small style="display:block; margin-top:5px; color:gray; max-width: 400px;">
+    Example prompt: <em>"A futuristic cityscape at night with neon lights and flying cars"</em>
   </small>
 
+  <div id="output" style="margin-top: 20px;">Generated image will appear here</div>
 
-<div id="output">Generated image will appear here</div>
-
-
-<div id="output" style="margin-top: 20px;"></div>
-<h3>Image History</h3>
-<div id="history" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
-  <p id="history-note" style="display: none; font-size: 14px; color: #555; margin-top: 8px;">
-  <strong>Note:</strong> Only the last <strong>2 images</strong> are stored locally in your browser and shown here. Older images are automatically removed to save space.
-</p>
-
+  <h3>Image History</h3>
+  <div id="history"></div>
+  <p id="history-note" style="display: none;">
+    <strong>Note:</strong> Only the last <strong>2 images</strong> are stored locally in your browser and shown here. Older images are automatically removed to save space.
+  </p>
 
 
 <script>
