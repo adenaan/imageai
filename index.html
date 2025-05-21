@@ -40,53 +40,82 @@
 
 
 <script>
-  // Load cached history on page load
-  window.addEventListener("DOMContentLoaded", () => {
-    const history = document.getElementById("history");
-    const cached = JSON.parse(localStorage.getItem("imageHistory")) || [];
-
-    cached.forEach(({ url, id }) => {
-      const historyItem = document.createElement("div");
-      historyItem.style.width = "150px";
-      historyItem.style.textAlign = "center";
-      historyItem.style.display = "inline-block";
-      historyItem.dataset.id = id;
-
-      const thumb = document.createElement("img");
-      thumb.src = url;
-      thumb.style.width = "100%";
-      thumb.style.border = "1px solid #ccc";
-      thumb.style.borderRadius = "6px";
-
-      const downloadBtn = document.createElement("a");
-      downloadBtn.href = url;
-      downloadBtn.download = `image-${id}.png`;
-      downloadBtn.innerText = "Download";
-      downloadBtn.style.display = "block";
-      downloadBtn.style.marginTop = "4px";
-      downloadBtn.style.textDecoration = "none";
-      downloadBtn.style.fontSize = "12px";
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.innerText = "Delete";
-      deleteBtn.style.marginTop = "4px";
-      deleteBtn.style.fontSize = "12px";
-      deleteBtn.onclick = () => {
-        history.removeChild(historyItem);
-        removeFromLocalStorage(id);
-      };
-
-      historyItem.appendChild(thumb);
-      historyItem.appendChild(downloadBtn);
-      historyItem.appendChild(deleteBtn);
-      history.appendChild(historyItem);
+  // Convert Blob to base64 string helper
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
     });
-  });
+  }
+
+  // Load history from localStorage on page load
+  function loadHistory() {
+    const history = document.getElementById("history");
+    const saved = localStorage.getItem("imageHistory");
+    if (!saved) return;
+
+    const images = JSON.parse(saved);
+    images.forEach(({ base64, timestamp }) => {
+      addHistoryItem(base64, timestamp);
+    });
+  }
+
+  // Save history array to localStorage
+  function saveHistory(images) {
+    localStorage.setItem("imageHistory", JSON.stringify(images));
+  }
+
+  // Add image item to history UI and return the element for delete handling
+  function addHistoryItem(base64, timestamp) {
+    const history = document.getElementById("history");
+
+    const historyItem = document.createElement("div");
+    historyItem.style.width = "150px";
+    historyItem.style.textAlign = "center";
+    historyItem.style.display = "inline-block";
+    historyItem.style.marginRight = "8px";
+    historyItem.dataset.timestamp = timestamp;
+
+    const thumb = document.createElement("img");
+    thumb.src = base64;
+    thumb.style.width = "100%";
+    thumb.style.border = "1px solid #ccc";
+    thumb.style.borderRadius = "6px";
+
+    const downloadBtn = document.createElement("a");
+    downloadBtn.href = base64;
+    downloadBtn.download = `image-${timestamp}.png`;
+    downloadBtn.innerText = "Download";
+    downloadBtn.style.display = "block";
+    downloadBtn.style.marginTop = "4px";
+    downloadBtn.style.textDecoration = "none";
+    downloadBtn.style.fontSize = "12px";
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.innerText = "Delete";
+    deleteBtn.style.marginTop = "4px";
+    deleteBtn.style.fontSize = "12px";
+    deleteBtn.onclick = () => {
+      history.removeChild(historyItem);
+      // Remove from localStorage too
+      const saved = JSON.parse(localStorage.getItem("imageHistory")) || [];
+      const filtered = saved.filter(img => img.timestamp !== timestamp);
+      saveHistory(filtered);
+    };
+
+    historyItem.appendChild(thumb);
+    historyItem.appendChild(downloadBtn);
+    historyItem.appendChild(deleteBtn);
+    history.appendChild(historyItem);
+
+    return historyItem;
+  }
 
   async function generateImage() {
     const prompt = document.getElementById("prompt").value.trim();
     const output = document.getElementById("output");
-    const history = document.getElementById("history");
     output.innerHTML = "Generating image...";
 
     if (!prompt) {
@@ -104,53 +133,25 @@
       if (!response.ok) throw new Error("Worker response error");
 
       const blob = await response.blob();
-      const imageURL = URL.createObjectURL(blob);
-      const id = Date.now();
+
+      // Convert blob to base64 for persistence
+      const base64 = await blobToBase64(blob);
 
       // Show current image
       const image = document.createElement("img");
-      image.src = imageURL;
+      image.src = base64;
       image.style.maxWidth = "100%";
       output.innerHTML = "";
       output.appendChild(image);
 
-      // Add to history
-      const historyItem = document.createElement("div");
-      historyItem.style.width = "150px";
-      historyItem.style.textAlign = "center";
-      historyItem.style.display = "inline-block";
-      historyItem.dataset.id = id;
+      // Add to history with timestamp
+      const timestamp = Date.now();
+      addHistoryItem(base64, timestamp);
 
-      const thumb = document.createElement("img");
-      thumb.src = imageURL;
-      thumb.style.width = "100%";
-      thumb.style.border = "1px solid #ccc";
-      thumb.style.borderRadius = "6px";
-
-      const downloadBtn = document.createElement("a");
-      downloadBtn.href = imageURL;
-      downloadBtn.download = `image-${id}.png`;
-      downloadBtn.innerText = "Download";
-      downloadBtn.style.display = "block";
-      downloadBtn.style.marginTop = "4px";
-      downloadBtn.style.textDecoration = "none";
-      downloadBtn.style.fontSize = "12px";
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.innerText = "Delete";
-      deleteBtn.style.marginTop = "4px";
-      deleteBtn.style.fontSize = "12px";
-      deleteBtn.onclick = () => {
-        history.removeChild(historyItem);
-        removeFromLocalStorage(id);
-      };
-
-      historyItem.appendChild(thumb);
-      historyItem.appendChild(downloadBtn);
-      historyItem.appendChild(deleteBtn);
-      history.appendChild(historyItem);
-
-      saveToLocalStorage(imageURL, id);
+      // Save to localStorage
+      const saved = JSON.parse(localStorage.getItem("imageHistory")) || [];
+      saved.push({ base64, timestamp });
+      saveHistory(saved);
 
     } catch (err) {
       console.error("Fetch error:", err);
@@ -158,17 +159,8 @@
     }
   }
 
-  function saveToLocalStorage(url, id) {
-    const history = JSON.parse(localStorage.getItem("imageHistory")) || [];
-    history.push({ url, id });
-    localStorage.setItem("imageHistory", JSON.stringify(history));
-  }
-
-  function removeFromLocalStorage(id) {
-    let history = JSON.parse(localStorage.getItem("imageHistory")) || [];
-    history = history.filter(item => item.id !== id);
-    localStorage.setItem("imageHistory", JSON.stringify(history));
-  }
+  // Load history on page load
+  window.addEventListener("DOMContentLoaded", loadHistory);
 </script>
 
 
