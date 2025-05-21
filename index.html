@@ -153,9 +153,10 @@
       const timestamp = Date.now();
       addHistoryItem(base64, timestamp);
 
-      // Save to localStorage
-      const saved = JSON.parse(localStorage.getItem("imageHistory")) || [];
-      saved.push({ base64, timestamp });
+      // Save to localStorage, keeping only 2 most recent
+      let saved = JSON.parse(localStorage.getItem("imageHistory")) || [];
+      saved.unshift({ base64, timestamp }); // add to beginning
+      saved = saved.slice(0, 2); // keep only last 2
       saveHistory(saved);
 
     } catch (err) {
