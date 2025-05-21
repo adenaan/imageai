@@ -32,18 +32,12 @@
 
 <div id="output">Generated image will appear here</div>
 
-<h2>Image History</h2>
+
 <div id="output"></div>
 <div id="history" style="margin-top: 20px;"></div>
 
 
  <script>
-  // Load image history on page load
-  window.addEventListener("DOMContentLoaded", () => {
-    const history = JSON.parse(localStorage.getItem("imageHistory") || "[]");
-    renderImageHistory(history);
-  });
-
   async function generateImage() {
     const prompt = document.getElementById("prompt").value.trim();
     const output = document.getElementById("output");
@@ -56,69 +50,39 @@
         body: JSON.stringify({ prompt }),
       });
 
-      const data = await response.json();
-      console.log("Full response data:", data);
+      const contentType = response.headers.get("content-type");
 
-      // Check the most likely structure: result.image_base64
-      if (data.result && data.result.image_base64) {
-        const base64 = data.result.image_base64;
-        const image = createImageElement(base64);
+      if (contentType && contentType.startsWith("image/")) {
+        const blob = await response.blob();
+        const imageUrl = URL.createObjectURL(blob);
+
+        const image = document.createElement("img");
+        image.src = imageUrl;
         output.innerHTML = "";
         output.appendChild(image);
 
-        saveImageToHistory(base64);
-        return;
+        // Save image to history
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result.split(",")[1];
+          saveImageToHistory(base64);
+        };
+        reader.readAsDataURL(blob);
+      } else {
+        const text = await response.text();
+        output.innerHTML = "Error: " + text;
+        console.error("Unexpected non-image response:", text);
       }
-
-      // Fallback for possible generations format
-      if (
-        data.result &&
-        data.result.generations &&
-        Array.isArray(data.result.generations) &&
-        data.result.generations.length > 0
-      ) {
-        const gen = data.result.generations[0];
-        let imageSrc = "";
-
-        if (gen.url) {
-          imageSrc = gen.url;
-        } else if (gen.base64) {
-          imageSrc = `data:image/png;base64,${gen.base64}`;
-        }
-
-        if (imageSrc) {
-          const image = document.createElement("img");
-          image.src = imageSrc;
-          output.innerHTML = "";
-          output.appendChild(image);
-
-          // Save only base64 to history if applicable
-          if (imageSrc.startsWith("data:image")) {
-            saveImageToHistory(imageSrc.split(",")[1]); // strip "data:image/png;base64,"
-          }
-
-          return;
-        }
-      }
-
-      output.innerHTML = "Error: No image data found in response.";
-      console.error("Unexpected or missing image data in result:", data);
     } catch (err) {
       console.error("Fetch error:", err);
       output.innerHTML = "An error occurred while generating the image.";
     }
   }
 
-  function createImageElement(base64) {
-    const image = document.createElement("img");
-    image.src = `data:image/png;base64,${base64}`;
-    return image;
-  }
-
   function saveImageToHistory(base64) {
     const history = JSON.parse(localStorage.getItem("imageHistory") || "[]");
-    history.unshift(base64); // newest first
-    localStorage.setItem("imageHistory", JSON.stringify(history.slice(0, 10))); // keep last 10
+    history.unshift(base64);
+    localStorage.setItem("imageHistory", JSON.stringify(history.slice(0, 10)));
     renderImageHistory(history.slice(0, 10));
   }
 
@@ -145,7 +109,13 @@
       container.appendChild(wrapper);
     });
   }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    const history = JSON.parse(localStorage.getItem("imageHistory") || "[]");
+    renderImageHistory(history);
+  });
 </script>
+
 
 
 
