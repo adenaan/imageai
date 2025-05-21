@@ -33,26 +33,20 @@
 <div id="output">Generated image will appear here</div>
 
 <h2>Image History</h2>
-<div id="history"></div>
-<div id="history" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;"></div>
+<div id="output"></div>
+<div id="history" style="margin-top: 20px;"></div>
 
 
  <script>
-  const output = document.getElementById("output");
-  const historyContainer = document.getElementById("history");
-
-  // Load cached history on startup
-  window.onload = () => {
-    const cached = localStorage.getItem("imageHistory");
-    if (cached) {
-      JSON.parse(cached).forEach(displayInHistory);
-    }
-  };
+  // Load image history on page load
+  window.addEventListener("DOMContentLoaded", () => {
+    const history = JSON.parse(localStorage.getItem("imageHistory") || "[]");
+    renderImageHistory(history);
+  });
 
   async function generateImage() {
     const prompt = document.getElementById("prompt").value.trim();
-    if (!prompt) return;
-
+    const output = document.getElementById("output");
     output.innerHTML = "Generating image...";
 
     try {
@@ -63,79 +57,96 @@
       });
 
       const data = await response.json();
-      console.log("Response:", data);
+      console.log("Full response data:", data);
 
-      let imageSrc = null;
+      // Check the most likely structure: result.image_base64
+      if (data.result && data.result.image_base64) {
+        const base64 = data.result.image_base64;
+        const image = createImageElement(base64);
+        output.innerHTML = "";
+        output.appendChild(image);
 
-      if (data.result?.image_base64) {
-        imageSrc = `data:image/png;base64,${data.result.image_base64}`;
-      } else if (
-        data.result?.generations?.length &&
-        (data.result.generations[0].base64 || data.result.generations[0].url)
-      ) {
-        const gen = data.result.generations[0];
-        imageSrc = gen.base64
-          ? `data:image/png;base64,${gen.base64}`
-          : gen.url;
-      }
-
-      if (!imageSrc) {
-        output.innerHTML = "Error: No image found in response.";
+        saveImageToHistory(base64);
         return;
       }
 
-      const img = document.createElement("img");
-      img.src = imageSrc;
-      img.style.maxWidth = "100%";
-      output.innerHTML = "";
-      output.appendChild(img);
+      // Fallback for possible generations format
+      if (
+        data.result &&
+        data.result.generations &&
+        Array.isArray(data.result.generations) &&
+        data.result.generations.length > 0
+      ) {
+        const gen = data.result.generations[0];
+        let imageSrc = "";
 
-      const item = { prompt, image: imageSrc, time: new Date().toISOString() };
-      saveToHistory(item);
-      displayInHistory(item);
+        if (gen.url) {
+          imageSrc = gen.url;
+        } else if (gen.base64) {
+          imageSrc = `data:image/png;base64,${gen.base64}`;
+        }
+
+        if (imageSrc) {
+          const image = document.createElement("img");
+          image.src = imageSrc;
+          output.innerHTML = "";
+          output.appendChild(image);
+
+          // Save only base64 to history if applicable
+          if (imageSrc.startsWith("data:image")) {
+            saveImageToHistory(imageSrc.split(",")[1]); // strip "data:image/png;base64,"
+          }
+
+          return;
+        }
+      }
+
+      output.innerHTML = "Error: No image data found in response.";
+      console.error("Unexpected or missing image data in result:", data);
     } catch (err) {
-      console.error("Error:", err);
-      output.innerHTML = "An error occurred.";
+      console.error("Fetch error:", err);
+      output.innerHTML = "An error occurred while generating the image.";
     }
   }
 
-  function saveToHistory(item) {
-    const history = JSON.parse(localStorage.getItem("imageHistory") || "[]");
-    history.unshift(item);
-    localStorage.setItem("imageHistory", JSON.stringify(history.slice(0, 20)));
+  function createImageElement(base64) {
+    const image = document.createElement("img");
+    image.src = `data:image/png;base64,${base64}`;
+    return image;
   }
 
-  function displayInHistory({ prompt, image, time }) {
-    const wrapper = document.createElement("div");
-    wrapper.style.marginBottom = "10px";
-
-    const img = document.createElement("img");
-    img.src = image;
-    img.style.maxWidth = "150px";
-    img.title = prompt;
-
-    const info = document.createElement("p");
-    info.textContent = `${prompt} – ${new Date(time).toLocaleString()}`;
-
-    const delBtn = document.createElement("button");
-    delBtn.textContent = "Delete";
-    delBtn.onclick = () => {
-      wrapper.remove();
-      removeFromHistory(time);
-    };
-
-    wrapper.appendChild(img);
-    wrapper.appendChild(info);
-    wrapper.appendChild(delBtn);
-    historyContainer.appendChild(wrapper);
+  function saveImageToHistory(base64) {
+    const history = JSON.parse(localStorage.getItem("imageHistory") || "[]");
+    history.unshift(base64); // newest first
+    localStorage.setItem("imageHistory", JSON.stringify(history.slice(0, 10))); // keep last 10
+    renderImageHistory(history.slice(0, 10));
   }
 
-  function removeFromHistory(time) {
-    const history = JSON.parse(localStorage.getItem("imageHistory") || "[]");
-    const updated = history.filter(item => item.time !== time);
-    localStorage.setItem("imageHistory", JSON.stringify(updated));
+  function renderImageHistory(history) {
+    const container = document.getElementById("history");
+    if (!container) return;
+
+    container.innerHTML = "<h3>Image History</h3>";
+    history.forEach((base64, index) => {
+      const wrapper = document.createElement("div");
+      const img = document.createElement("img");
+      img.src = `data:image/png;base64,${base64}`;
+      img.style.maxWidth = "150px";
+      img.style.margin = "5px";
+
+      const downloadLink = document.createElement("a");
+      downloadLink.href = img.src;
+      downloadLink.download = `image_${index + 1}.png`;
+      downloadLink.textContent = "Download";
+      downloadLink.style.display = "block";
+
+      wrapper.appendChild(img);
+      wrapper.appendChild(downloadLink);
+      container.appendChild(wrapper);
+    });
   }
 </script>
+
 
 
 
