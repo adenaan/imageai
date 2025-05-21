@@ -58,13 +58,15 @@
   // Load history from localStorage on page load
   function loadHistory() {
     const history = document.getElementById("history");
+    const note = document.getElementById("history-note");
     const saved = localStorage.getItem("imageHistory");
     if (!saved) return;
 
     const images = JSON.parse(saved);
-    images.forEach(({ base64, timestamp }) => {
-      addHistoryItem(base64, timestamp);
-    });
+   if (images.length > 0) note.style.display = "block";
+  images.forEach(({ base64, timestamp }) => {
+    addHistoryItem(base64, timestamp);
+  });
   }
 
   // Save history array to localStorage
